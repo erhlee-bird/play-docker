@@ -2,12 +2,12 @@
 # shellcheck disable=SC2039
 
 # BEGIN VARIABLES
+SHELLBIN=/bin/sh
 INTERACTIVE=false
 VERBOSE=0
-SHELLBIN=/bin/sh
+DRYRUN=false
 CONTAINERNAME=
 ARGFILE=
-RUNARGS=
 
 ARGFILENAME="DOCKERPLAYFILE"
 ERRORFMT="\e[1m\e[31m"
@@ -28,6 +28,7 @@ usage() {
   echo "Options:"
   echo "  -h, --help             Print usage"
   echo "  -i, --interactive      Run a basic shell in the docker container."
+  echo "  -n, --dry-run          Print out the resulting command."
   echo "  -v, --verbose          Raise the verbosity for each flag present."
   exit 0
 }
@@ -66,13 +67,14 @@ parse_option() {
   case "$1" in
     h|help) usage ;;
     i|interactive) INTERACTIVE=true ;;
+    n|dry-run) DRYRUN=true; VERBOSE=2 ;;
     v|verbose) VERBOSE=$((VERBOSE + 1)) ;;
     \?) error_option "Invalid Option" ;;
     :) error_option "Missing Option" ;;
   esac
 }
 
-while getopts ":hiv-:" opt; do
+while getopts ":hinv-:" opt; do
   case "${opt}" in
     -) parse_option "${OPTARG}" ;;
     *) parse_option "${opt}" ;;
@@ -109,6 +111,8 @@ fi
 # END POSITIONAL ARGUMENT PARSING
 
 # BEGIN PREPARATION
+RUNARGS="--name $CONTAINERNAME "
+
 while read -r line; do
   # Ignore empty lines and lines that begin with a hash.
   case "$line" in
@@ -117,9 +121,13 @@ while read -r line; do
   esac
   # Evaluate each part of the line to account for subshells and variables.
   for part in $line; do
-    RUNARGS="${RUNARGS}$(eval "echo $part") "
+    parteval="$(eval "echo $part" 2>/dev/null)"
+    # shellcheck disable=SC2181
+    if [ $? -eq 0 ]; then
+      part="${parteval}"
+    fi
+    RUNARGS="${RUNARGS}$part "
   done
-  # RUNARGS="${RUNARGS}${line} "
 done < "$ARGFILE"
 
 if [ $INTERACTIVE = true ]; then
@@ -131,10 +139,24 @@ fi
 
 # BEGIN EXECUTION
 info "Stopping Container:"
-warn "$(docker stop "$CONTAINERNAME" 2>&1)"
+if [ $DRYRUN = true ]; then
+  warn "docker stop $CONTAINERNAME"
+else
+  warn "$(docker stop "$CONTAINERNAME" 2>&1)"
+fi
 info "Deleting Container:"
-warn "$(docker rm "$CONTAINERNAME" 2>&1)"
+if [ $DRYRUN = true ]; then
+  warn "docker rm $CONTAINERNAME"
+else
+  warn "$(docker rm "$CONTAINERNAME" 2>&1)"
+fi
 
-# shellcheck disable=SC2086
-docker run $RUNARGS
+info "Running Container:"
+if [ $DRYRUN = true ]; then
+  warn "docker run $RUNARGS"
+else
+  # Need eval since posix sh does not support enhanced arrays.
+  # shellcheck disable=SC2086
+  eval docker run $RUNARGS
+fi
 # END EXECUTION
