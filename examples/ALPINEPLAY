@@ -1,0 +1,5 @@
+# Mount the current directory.
+--volume $(pwd):/mnt
+
+# Choose the image.
+alpine:edge

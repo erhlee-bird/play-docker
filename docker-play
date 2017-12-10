@@ -1,0 +1,140 @@
+#!/bin/sh
+# shellcheck disable=SC2039
+
+# BEGIN VARIABLES
+INTERACTIVE=false
+VERBOSE=0
+SHELLBIN=/bin/sh
+CONTAINERNAME=
+ARGFILE=
+RUNARGS=
+
+ARGFILENAME="DOCKERPLAYFILE"
+ERRORFMT="\e[1m\e[31m"
+WARNFMT="\e[1m\e[33m"
+INFOFMT="\e[1m\e[97m"
+RESETFMT="\e[0m"
+# END VARIABLES
+
+usage() {
+  echo "Usage:  docker-play [OPTIONS] [ARG...]"
+  echo
+  echo "Run a standard set of options for starting a docker container."
+  echo
+  echo "Arguments:"
+  echo "  CONTAINERNAME          The name argument to pass to docker-run."
+  echo "  ARGFILE                (Optional) Path to a $ARGFILENAME file."
+  echo
+  echo "Options:"
+  echo "  -h, --help             Print usage"
+  echo "  -i, --interactive      Run a basic shell in the docker container."
+  echo "  -v, --verbose          Raise the verbosity for each flag present."
+  exit 0
+}
+
+err() {
+  /bin/echo -e "${ERRORFMT}${1}${RESETFMT}" 1>&2
+}
+
+warn() {
+  if [ $VERBOSE -gt 0 ]; then
+    /bin/echo -e "${WARNFMT}${1}${RESETFMT}" 1>&2
+  fi
+}
+
+info() {
+  if [ $VERBOSE -gt 1 ]; then
+    /bin/echo -e "${INFOFMT}${1}${RESETFMT}"
+  fi
+}
+
+error_option() {
+  err "$1: -$OPTARG"
+  echo
+  usage
+  exit 1
+}
+
+missing_argument() {
+  err "Missing Required Argument: $1"
+  echo
+  usage
+  exit 1
+}
+
+parse_option() {
+  case "$1" in
+    h|help) usage ;;
+    i|interactive) INTERACTIVE=true ;;
+    v|verbose) VERBOSE=$((VERBOSE + 1)) ;;
+    \?) error_option "Invalid Option" ;;
+    :) error_option "Missing Option" ;;
+  esac
+}
+
+while getopts ":hiv-:" opt; do
+  case "${opt}" in
+    -) parse_option "${OPTARG}" ;;
+    *) parse_option "${opt}" ;;
+  esac
+done
+
+shift $((OPTIND - 1))
+
+# BEGIN POSITIONAL ARGUMENT PARSING
+# Get the Container Name.
+if [ $# -eq 0 ]; then
+  missing_argument "CONTAINERNAME"
+fi
+CONTAINERNAME="$1"
+shift
+
+# Get the Argfile.
+if [ $# -eq 0 ]; then
+  # Search for an Argfile in the current directory.
+  if [ -f "$ARGFILENAME" ]; then
+    ARGFILE="./$ARGFILENAME"
+  else
+    err "No $ARGFILENAME in current working directory."
+    missing_argument "ARGFILE"
+  fi
+else
+  ARGFILE="$1"
+  shift
+fi
+
+if [ ! $# -eq 0 ]; then
+  warn "Truncating Extra Arguments: '$*'"
+fi
+# END POSITIONAL ARGUMENT PARSING
+
+# BEGIN PREPARATION
+while read -r line; do
+  # Ignore empty lines and lines that begin with a hash.
+  case "$line" in
+    ""|\#*) continue ;;
+    *) : ;;
+  esac
+  # Evaluate each part of the line to account for subshells and variables.
+  for part in $line; do
+    RUNARGS="${RUNARGS}$(eval "echo $part") "
+  done
+  # RUNARGS="${RUNARGS}${line} "
+done < "$ARGFILE"
+
+if [ $INTERACTIVE = true ]; then
+  RUNARGS="--rm -it --entrypoint=$SHELLBIN ${RUNARGS}-i"
+else
+  RUNARGS="--detach --restart=always ${RUNARGS}"
+fi
+# END PREPARATION
+
+# BEGIN EXECUTION
+info "Stopping Container:"
+warn "$(docker stop "$CONTAINERNAME" 2>&1)"
+info "Deleting Container:"
+warn "$(docker rm "$CONTAINERNAME" 2>&1)"
+
+# shellcheck disable=SC2086
+docker run $RUNARGS
+# END EXECUTION
