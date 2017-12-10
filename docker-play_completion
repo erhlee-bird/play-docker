@@ -1,0 +1,9 @@
+_docker_play() {
+  local cur opts
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  opts="$(docker ps -a --format '{{.Names}}')"
+  COMPREPLY=($(compgen -W "${opts}" -- ${cur}) )
+  return 0
+}
+
+complete -F _docker_play docker-play
