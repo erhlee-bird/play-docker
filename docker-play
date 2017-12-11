@@ -131,7 +131,7 @@ while read -r line; do
 done < "$ARGFILE"
 
 if [ $INTERACTIVE = true ]; then
-  RUNARGS="--rm -it --entrypoint=$SHELLBIN ${RUNARGS}-i"
+  RUNARGS="--rm -it --volume $(pwd):/mnt --entrypoint=$SHELLBIN ${RUNARGS}-i"
 else
   RUNARGS="--detach --restart=always ${RUNARGS}"
 fi
