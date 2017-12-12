@@ -98,7 +98,7 @@ parse_option() {
   esac
 }
 
-while getopts ":hin:v-:" opt; do
+while getopts ":f:hin:v-:" opt; do
   # Normalize the long options.
   case "${opt}" in
     -)
