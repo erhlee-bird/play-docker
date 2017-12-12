@@ -1,4 +1,4 @@
-_docker_play() {
+_play_docker() {
   local cur opts
   cur="${COMP_WORDS[COMP_CWORD]}"
   opts="$(docker ps -a --format '{{.Names}}')"
@@ -6,4 +6,4 @@ _docker_play() {
   return 0
 }
 
-complete -F _docker_play docker-play
+complete -F _play_docker play-docker
