@@ -1,5 +1,6 @@
-# Mount the current directory.
---volume $(pwd):/mnt
+# Instructions:
+# cd to the examples directory and run
+# docker-play -if ALPINEPLAY
 
-# Choose the image.
-alpine:edge
+--volume $(pwd):/mnt  # Mount the current directory.
+alpine:edge           # The alpine image to use.
