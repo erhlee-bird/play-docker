@@ -2,7 +2,7 @@
 # shellcheck disable=SC2039
 
 # BEGIN VARIABLES
-SHELLBIN=/bin/sh
+SHELLBIN=${SHELLBIN:-/bin/sh}
 INTERACTIVE=false
 VERBOSE=0
 DRYRUN=false
